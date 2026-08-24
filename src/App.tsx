@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Sparkles, RefreshCw, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Sparkles, RefreshCw, ArrowLeft, CheckCircle2, ShieldCheck, Zap, FileText } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { FileDropzone } from './components/FileDropzone';
 import { SampleSelector } from './components/SampleSelector';
@@ -9,6 +9,7 @@ import { SummaryOutput } from './components/SummaryOutput';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { AboutModal } from './components/AboutModal';
 import { Footer } from './components/Footer';
+import { ToastContainer, type ToastMessage } from './components/Toast';
 import type { ProcessedDocument, SummaryLength, ProcessStage, SampleDocument } from './types';
 import { extractTextFromPdf } from './services/pdfService';
 import { extractTextFromImage } from './services/ocrService';
@@ -27,12 +28,29 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
+  // Toast System
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (title: string, message?: string, type: 'success' | 'info' | 'error' = 'info') => {
+    const newToast: ToastMessage = {
+      id: 'toast-' + Date.now() + '-' + Math.random(),
+      title,
+      message,
+      type,
+    };
+    setToasts((prev) => [...prev.slice(-3), newToast]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
   const triggerConfetti = () => {
     confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.7 },
-      colors: ['#6366f1', '#a855f7', '#ec4899', '#38bdf8'],
+      particleCount: 60,
+      spread: 70,
+      origin: { y: 0.65 },
+      colors: ['#6366f1', '#a855f7', '#ec4899', '#38bdf8', '#34d399'],
     });
   };
 
@@ -74,11 +92,14 @@ export function App() {
       setProcessedDoc(docObj);
       setIsProcessing(false);
       triggerConfetti();
+      addToast('Analysis Complete', `Successfully processed "${fileName}"`, 'success');
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Summarization failed.');
+      const msg = err instanceof Error ? err.message : 'Summarization failed.';
+      setError(msg);
       setIsProcessing(false);
       setProcessStage('error');
+      addToast('Processing Error', msg, 'error');
     }
   };
 
@@ -107,9 +128,11 @@ export function App() {
         await processTextAndSummarize(file.name, file.size, 'pdf', result.text, result.pageCount);
       } catch (err) {
         console.error(err);
-        setError(err instanceof Error ? err.message : 'Failed to parse PDF document.');
+        const msg = err instanceof Error ? err.message : 'Failed to parse PDF document.';
+        setError(msg);
         setIsProcessing(false);
         setProcessStage('error');
+        addToast('PDF Error', msg, 'error');
       }
     } else if (isImage) {
       setProcessStage('running_ocr');
@@ -123,9 +146,11 @@ export function App() {
         await processTextAndSummarize(file.name, file.size, 'image', result.text);
       } catch (err) {
         console.error(err);
-        setError(err instanceof Error ? err.message : 'Failed to run OCR on image.');
+        const msg = err instanceof Error ? err.message : 'Failed to run OCR on image.';
+        setError(msg);
         setIsProcessing(false);
         setProcessStage('error');
+        addToast('OCR Error', msg, 'error');
       }
     } else {
       // Plain text file
@@ -136,9 +161,11 @@ export function App() {
         await processTextAndSummarize(file.name, file.size, 'text', text);
       } catch (err) {
         console.error(err);
-        setError('Failed to read text file.');
+        const msg = 'Failed to read text file.';
+        setError(msg);
         setIsProcessing(false);
         setProcessStage('error');
+        addToast('File Error', msg, 'error');
       }
     }
   };
@@ -166,7 +193,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-100 flex flex-col font-['Inter'] selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-['Inter'] selection:bg-indigo-500 selection:text-white bg-grid-pattern relative">
       
       {/* Navbar */}
       <Navbar
@@ -176,23 +203,39 @@ export function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 z-10">
         
         {/* Hero Section */}
         {!processedDoc && (
-          <div className="text-center space-y-4 max-w-3xl mx-auto py-4">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 shadow-inner">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
-              <span>Smart Document Summarization & OCR Engine</span>
+          <div className="text-center space-y-6 max-w-4xl mx-auto py-6 sm:py-8">
+            <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
+              <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
+              <span>Smart Document Summarizer & Client-Side OCR Engine</span>
             </div>
 
-            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight font-['Outfit'] leading-tight">
-              Transform Any PDF or Image into <span className="gradient-text">Smart Summaries</span>
+            <h2 className="text-4xl sm:text-6xl font-black text-white tracking-tight font-['Outfit'] leading-[1.1]">
+              Transform Complex PDFs & Images into <span className="gradient-text">Actionable Insights</span>
             </h2>
 
-            <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-              Extract text, highlight core takeaways, generate customizable short/medium/long summaries, and get instant document writing improvement suggestions.
+            <p className="text-slate-400 text-base sm:text-lg leading-relaxed max-w-2xl mx-auto font-normal">
+              Parses PDFs, runs Tesseract.js image OCR, generates multi-depth summaries, categorizes key action items, and calculates readability analytics with zero server tracking.
             </p>
+
+            {/* Feature Pills */}
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-xs font-semibold">
+              <span className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900/90 text-slate-300 border border-slate-800 shadow-sm">
+                <Zap className="h-3.5 w-3.5 text-amber-400" />
+                <span>Short, Medium & Long Summaries</span>
+              </span>
+              <span className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900/90 text-slate-300 border border-slate-800 shadow-sm">
+                <FileText className="h-3.5 w-3.5 text-indigo-400" />
+                <span>Client PDF Parsing</span>
+              </span>
+              <span className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900/90 text-slate-300 border border-slate-800 shadow-sm">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Zero Server Uploads</span>
+              </span>
+            </div>
           </div>
         )}
 
@@ -213,32 +256,32 @@ export function App() {
             )}
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in fade-in duration-300">
             {/* Header Control Bar */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card rounded-2xl p-4 border border-slate-700/60">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card rounded-2xl p-4 border border-slate-800 shadow-xl">
               <div className="flex items-center space-x-3">
                 <button
                   onClick={handleReset}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
+                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 transition-all shadow-sm"
                 >
                   <ArrowLeft className="h-4 w-4 text-indigo-400" />
-                  <span>Upload Another Document</span>
+                  <span>Upload New Document</span>
                 </button>
 
-                <div className="h-4 w-[1px] bg-slate-700 hidden sm:block" />
+                <div className="h-4 w-[1px] bg-slate-800 hidden sm:block" />
 
                 <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-400">
                   <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                  <span>Currently viewing report for <strong className="text-white">{processedDoc.name}</strong></span>
+                  <span>Analysis active for <strong className="text-white font-['Outfit']">{processedDoc.name}</strong></span>
                 </div>
               </div>
 
               <button
                 onClick={handleReset}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-all"
+                className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition-all"
               >
-                <RefreshCw className="h-3.5 w-3.5" />
-                <span>New Analysis</span>
+                <RefreshCw className="h-3.5 w-3.5 text-indigo-400" />
+                <span>Re-Analyze File</span>
               </button>
             </div>
 
@@ -250,7 +293,11 @@ export function App() {
             />
 
             {/* Full Summary Dashboard Output */}
-            <SummaryOutput document={processedDoc} summaryLength={summaryLength} />
+            <SummaryOutput
+              document={processedDoc}
+              summaryLength={summaryLength}
+              onShowToast={addToast}
+            />
           </div>
         )}
       </main>
@@ -263,13 +310,20 @@ export function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         apiKey={customApiKey}
-        onSaveKey={setCustomApiKey}
+        onSaveKey={(key) => {
+          setCustomApiKey(key);
+          addToast('Settings Saved', key ? 'Custom AI API Key connected' : 'Switched to zero-config engine', 'success');
+        }}
       />
 
       <AboutModal
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}
       />
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
   );
 }
+

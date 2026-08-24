@@ -6,9 +6,10 @@ import type { ProcessedDocument, SummaryLength } from '../types';
 interface ExportBarProps {
   document: ProcessedDocument;
   summaryLength: SummaryLength;
+  onShowToast?: (title: string, message?: string, type?: 'success' | 'info' | 'error') => void;
 }
 
-export const ExportBar: React.FC<ExportBarProps> = ({ document, summaryLength }) => {
+export const ExportBar: React.FC<ExportBarProps> = ({ document, summaryLength, onShowToast }) => {
   const [copied, setCopied] = useState(false);
 
   const getActiveSummaryText = (): string => {
@@ -26,6 +27,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({ document, summaryLength })
     const textToCopy = getActiveSummaryText();
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
+    onShowToast?.('Copied to Clipboard', `${summaryLength.toUpperCase()} summary copied to clipboard!`, 'success');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -38,6 +40,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({ document, summaryLength })
     a.download = `${document.name.replace(/\.[^/.]+$/, '')}_summary.txt`;
     a.click();
     URL.revokeObjectURL(url);
+    onShowToast?.('Export Completed', 'Summary saved as TXT file.', 'success');
   };
 
   const handleDownloadMd = () => {
@@ -66,89 +69,96 @@ ${document.summary.improvementSuggestions.map(s => `- **${s.title}**: ${s.sugges
     a.download = `${document.name.replace(/\.[^/.]+$/, '')}_summary.md`;
     a.click();
     URL.revokeObjectURL(url);
+    onShowToast?.('Export Completed', 'Summary saved as Markdown (.md) file.', 'success');
   };
 
   const handleDownloadPdf = () => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.setTextColor(30, 41, 59);
-    doc.text('DocuSummarize AI - Document Report', 14, 20);
+    try {
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.setTextColor(30, 41, 59);
+      doc.text('DocuSummarize AI - Document Analysis Report', 14, 20);
 
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Source File: ${document.name}`, 14, 28);
-    doc.text(`Generated: ${new Date().toLocaleDateString()} | Readability Score: ${document.summary.stats.readabilityScore}/100`, 14, 34);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Source File: ${document.name}`, 14, 28);
+      doc.text(`Generated: ${new Date().toLocaleDateString()} | Flesch Score: ${document.summary.stats.readabilityScore}/100 | Tone: ${document.summary.stats.sentiment}`, 14, 34);
 
-    doc.setLineWidth(0.5);
-    doc.setDrawColor(203, 213, 225);
-    doc.line(14, 38, 196, 38);
+      doc.setLineWidth(0.5);
+      doc.setDrawColor(203, 213, 225);
+      doc.line(14, 38, 196, 38);
 
-    // Section 1: Executive Summary
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(79, 70, 229);
-    doc.text('Executive Summary', 14, 48);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(51, 65, 85);
-
-    const execLines = doc.splitTextToSize(document.summary.executiveSummary, 180);
-    doc.text(execLines, 14, 56);
-
-    let currentY = 56 + execLines.length * 6 + 6;
-
-    // Section 2: Main Summary
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(79, 70, 229);
-    doc.text(`${summaryLength.toUpperCase()} Summary`, 14, currentY);
-    currentY += 8;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(51, 65, 85);
-
-    const mainLines = doc.splitTextToSize(getActiveSummaryText(), 180);
-    doc.text(mainLines, 14, currentY);
-
-    currentY += mainLines.length * 6 + 8;
-
-    // Section 3: Key Points
-    if (currentY < 240) {
+      // Section 1: Executive Summary
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
       doc.setTextColor(79, 70, 229);
-      doc.text('Key Points & Highlights', 14, currentY);
+      doc.text('Executive Summary', 14, 48);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(51, 65, 85);
+
+      const execLines = doc.splitTextToSize(document.summary.executiveSummary, 180);
+      doc.text(execLines, 14, 56);
+
+      let currentY = 56 + execLines.length * 6 + 6;
+
+      // Section 2: Main Summary
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(79, 70, 229);
+      doc.text(`${summaryLength.toUpperCase()} Summary`, 14, currentY);
       currentY += 8;
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(51, 65, 85);
 
-      document.summary.keyPoints.slice(0, 4).forEach((kp) => {
-        if (currentY < 275) {
-          const kpLines = doc.splitTextToSize(`• ${kp.text}`, 175);
-          doc.text(kpLines, 16, currentY);
-          currentY += kpLines.length * 5 + 3;
-        }
-      });
-    }
+      const mainLines = doc.splitTextToSize(getActiveSummaryText(), 180);
+      doc.text(mainLines, 14, currentY);
 
-    doc.save(`${document.name.replace(/\.[^/.]+$/, '')}_report.pdf`);
+      currentY += mainLines.length * 6 + 8;
+
+      // Section 3: Key Points
+      if (currentY < 240) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(79, 70, 229);
+        doc.text('Key Points & Highlights', 14, currentY);
+        currentY += 8;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(51, 65, 85);
+
+        document.summary.keyPoints.slice(0, 4).forEach((kp) => {
+          if (currentY < 275) {
+            const kpLines = doc.splitTextToSize(`• ${kp.text}`, 175);
+            doc.text(kpLines, 16, currentY);
+            currentY += kpLines.length * 5 + 3;
+          }
+        });
+      }
+
+      doc.save(`${document.name.replace(/\.[^/.]+$/, '')}_report.pdf`);
+      onShowToast?.('PDF Exported', 'Executive PDF report downloaded successfully.', 'success');
+    } catch (err) {
+      console.error(err);
+      onShowToast?.('PDF Error', 'Failed to generate PDF document.', 'error');
+    }
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
+    <div className="flex flex-wrap items-center justify-end gap-2 pt-4 border-t border-slate-800/80">
       
       {/* Copy Summary */}
       <button
         onClick={handleCopy}
-        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
+        className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 transition-all shadow-sm"
       >
         {copied ? (
           <>
@@ -166,7 +176,7 @@ ${document.summary.improvementSuggestions.map(s => `- **${s.title}**: ${s.sugges
       {/* Download Markdown */}
       <button
         onClick={handleDownloadMd}
-        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
+        className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 transition-all shadow-sm"
       >
         <FileCode className="h-3.5 w-3.5 text-purple-400" />
         <span>Export .MD</span>
@@ -175,7 +185,7 @@ ${document.summary.improvementSuggestions.map(s => `- **${s.title}**: ${s.sugges
       {/* Download TXT */}
       <button
         onClick={handleDownloadTxt}
-        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
+        className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 transition-all shadow-sm"
       >
         <FileText className="h-3.5 w-3.5 text-cyan-400" />
         <span>Export .TXT</span>
@@ -184,11 +194,12 @@ ${document.summary.improvementSuggestions.map(s => `- **${s.title}**: ${s.sugges
       {/* Download PDF */}
       <button
         onClick={handleDownloadPdf}
-        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-500/20 transition-all"
+        className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/25 border border-indigo-400/30 transition-all hover:scale-[1.02] active:scale-95"
       >
-        <Download className="h-3.5 w-3.5" />
-        <span>Export PDF</span>
+        <Download className="h-3.5 w-3.5 text-white" />
+        <span>Export Executive PDF</span>
       </button>
     </div>
   );
 };
+
