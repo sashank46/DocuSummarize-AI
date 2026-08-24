@@ -74,7 +74,8 @@ npm run build
 
 ## 📋 Technical Assessment Deliverables Checklist
 
-- [x] **Working Application URL**: [Hosted Cloud Deployment]
+- [x] **Working Application URL**: [https://sashank46.github.io/DocuSummarize-AI/](https://sashank46.github.io/DocuSummarize-AI/)
+
 - [x] **GitHub Repository**: Source code with full commit history
 - [x] **Brief Write-up**: Technical approach (< 200 words) included above and in app modal
 - [x] **PDF Parsing**: Line and structure extraction
